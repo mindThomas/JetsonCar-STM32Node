@@ -31,6 +31,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/startup_stm32f405xx.s</locationURI>
 		</link>
 		<link>
+			<name>Application/User/communication.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Src/communication.c</locationURI>
+		</link>
+		<link>
 			<name>Application/User/freertos.c</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Src/freertos.c</locationURI>
@@ -174,6 +179,16 @@
 			<name>Drivers/STM32F4xx_HAL_Driver/stm32f4xx_ll_usb.c</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_usb.c</locationURI>
+		</link>
+		<link>
+			<name>Libraries/CRC/crc.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Libraries/CRC/crc.c</locationURI>
+		</link>
+		<link>
+			<name>Libraries/CRC/crc.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Libraries/CRC/crc.h</locationURI>
 		</link>
 		<link>
 			<name>Libraries/Encoders/Encoders.c</name>

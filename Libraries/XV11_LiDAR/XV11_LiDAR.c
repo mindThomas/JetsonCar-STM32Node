@@ -3,6 +3,7 @@
 #include "stm32f4xx_hal_uart.h"
 #include "stm32f4xx_hal_usart.h"
 #include "cmsis_os.h"
+#include "communication.h"
 
 // DMA inspired by https://stm32f4-discovery.net/2017/07/stm32-tutorial-efficiently-receive-uart-data-using-dma/
 
@@ -35,7 +36,7 @@ void LiDAR_Init(void)
 	LiDAR_UART_Init();
 	LiDAR_DMA_Init();
 
-	osThreadDef(LiDAR_ParserTask, LiDAR_Parser, osPriorityNormal, 0, 512);
+	osThreadDef(LiDAR_ParserTask, LiDAR_Parser, osPriorityRealtime, 0, 512);
 	LiDAR_ParserTaskHandle = osThreadCreate(osThread(LiDAR_ParserTask), NULL);
 
 	osThreadDef(LiDAR_SpeedControllerTask, LiDAR_SpeedController, osPriorityNormal, 0, 128);
@@ -118,7 +119,7 @@ void LiDAR_DMA_Init(void)
 	  __HAL_LINKDMA(&UartHandle, hdmarx, hdma_rx);
 
 	  /* NVIC configuration for DMA transfer complete interrupt (USARTx_RX) */
-	  HAL_NVIC_SetPriority(LIDAR_DMA_RX_IRQn, 5, 0);
+	  HAL_NVIC_SetPriority(LIDAR_DMA_RX_IRQn, 6, 0);
 	  HAL_NVIC_EnableIRQ(LIDAR_DMA_RX_IRQn);
 
 	  HAL_DMA_Start_IT(&hdma_rx, (uint32_t)&UartHandle.Instance->DR, (uint32_t)LiDAR_Buffer, LIDAR_DMA_BUFFER);
@@ -191,8 +192,6 @@ void DMA2_Stream5_IRQHandler(void) {
         DMA2_Stream5->NDTR = LIDAR_DMA_BUFFER;    /* Set number of bytes to receive */
         __HAL_DMA_ENABLE(&hdma_rx);				   /* Re-enable the DMA transfer */
 
-
-
         //status = xQueueSendToBackFromISR( xExternal, &i, &xHigherPriorityTaskWoken );
         xSemaphoreGiveFromISR( XV11_Semaphore, &xHigherPriorityTaskWoken );
 
@@ -254,6 +253,7 @@ void ParseIncomingData() {
 				if (availableDataLength >= 22) {
 					//sprintf(text_buffer, "Found package with ID %d\n", LiDAR_Buffer[(readOffset+1) % writeRolloverPos]);
 					//LiDAR_Transmit(text_buffer, strlen(text_buffer));
+					//CDC_Transmit_FS(text_buffer, strlen(text_buffer));
 
 					for (i = 0; i < 22; i++) {
 						Package[i] = LiDAR_Buffer[readOffset];
@@ -280,6 +280,7 @@ uint16_t GoodReadings = 0, BadReadings = 0;
 uint16_t AnglesCovered = 0;
 void ParsePackage(uint8_t * packagePointer)
 {
+	uint8_t text_buffer[40];
 	uint16_t i;
 	uint16_t Index;
 	uint16_t Speed16;
@@ -287,6 +288,7 @@ void ParsePackage(uint8_t * packagePointer)
 	uint8_t InvalidFlag[4];
 	uint8_t WarningFlag[4];
 	uint16_t Checksum, ChecksumCalculated;
+	LiDAR_Message meas;
 
 	if (packagePointer[0] != 0xFA) {
 		Debug("Something BAD happened as the package for parsing is not correct!\n");
@@ -337,6 +339,12 @@ void ParsePackage(uint8_t * packagePointer)
 		if (!InvalidFlag[i])
 		{
 			Distance[Index+i] = packagePointer[4+(i*4)] | ((uint16_t)(packagePointer[5+(i*4)] & 0x3F) << 8);
+			meas.ID = Index+i;
+			meas.Distance = Distance[Index+i];
+			if (xQueueSend(LiDAR_Message_Queue, (void *)&meas, (TickType_t) 10) != pdPASS)
+			{
+				meas.ID = 0;
+			}
 			GoodReadings++;
 		} else {
 			Distance[Index+i] = 0;
@@ -349,19 +357,13 @@ void ParsePackage(uint8_t * packagePointer)
 uint16_t PackageChecksum(uint8_t * packagePointer)
 {
 	uint8_t i;
-	uint16_t data[10];
 	uint16_t checksum;
 	uint32_t chk32;
-
-	// group the data by word, little-endian
-	for (i = 0; i < 10; i++) {
-		data[i] = packagePointer[2*i] | (((uint16_t)packagePointer[2*i+1]) << 8);
-	}
 
 	// compute the checksum on 32 bits
 	chk32 = 0;
 	for (i = 0; i < 10; i++) {
-    	chk32 = (chk32 << 1) + data[i];
+    	chk32 = (chk32 << 1) + (packagePointer[2*i] | (((uint16_t)packagePointer[2*i+1]) << 8)); // group the data into 16-bit, little-endian
 	}
 
    // return a value wrapped around on 15bits, and truncated to still fit into 15 bits
@@ -402,7 +404,7 @@ void LiDAR_SpeedController(void const * argument)
 		if (err > 50) err = 50;
 		if (err < -50) err = -50;
 		P = 1 * err;
-		I = I + 0.02 * err;
+		I = I + 0.01 * err;
 		if (I > 1000) I = 1000;
 		if (I < -1000) I = -1000;
 

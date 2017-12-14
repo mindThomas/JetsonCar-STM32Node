@@ -51,6 +51,8 @@
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 #include "usb_device.h"
+#include "communication.h"
+#include "crc.h"
 
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
@@ -102,10 +104,11 @@ void SetPWM(TIM_HandleTypeDef * timer, uint8_t channel, uint16_t PWM);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+uint16_t checksum;
 /* USER CODE END 0 */
 
 int main(void)
-{
+ {
 
   /* USER CODE BEGIN 1 */
 
@@ -124,7 +127,8 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  crcInit();
+  checksum = crcFast("123456789", 9);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -451,7 +455,7 @@ static void MX_TIM12_Init(void)
   TIM_OC_InitTypeDef sConfigOC;
 
   htim12.Instance = TIM12;
-  htim12.Init.Prescaler = 6;
+  htim12.Init.Prescaler = 7;
   htim12.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim12.Init.Period = 999;
   htim12.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -461,7 +465,7 @@ static void MX_TIM12_Init(void)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 895;
+  sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim12, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -498,6 +502,10 @@ uint16_t range;
 void I2C_Test(void const * argument)
 {
 	uint8_t buffer[50];
+	while (1) {
+		osDelay(100);
+	}
+
 	VL53L0X_init(true);
 	VL53L0X_setTimeout(500);
 	/*VL53L0X_startContinuous(0);
@@ -526,7 +534,8 @@ void I2C_Test(void const * argument)
 	while (1) {
 		range = VL53L0X_readRangeSingleMillimeters();
 		sprintf(buffer, "Distance: %d\n", range);
-		CDC_Transmit_FS(buffer, strlen(buffer));
+		//CDC_Transmit_FS(buffer, strlen(buffer));
+		osDelay(100);
 	}
 }
 
@@ -606,24 +615,6 @@ void Enter_DFU_Bootloader(){
     NVIC_SystemReset();
 }
 
-void TM_BKPSRAM_Init(void) {
-	/* Enable PWR clock */
-	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
-
-	/* Enable backup SRAM Clock */
-	RCC->AHB1ENR |= RCC_AHB1ENR_BKPSRAMEN;
-
-	/* Allow access to backup domain */
-	PWR_BackupAccessCmd(ENABLE);
-
-	/* Enable the Backup SRAM low power Regulator */
-	/* This will allow data to stay when using VBat mode */
-	PWR_BackupRegulatorCmd(ENABLE);
-
-	/* Wait for backup regulator to be ready  */
-	while (!(PWR->CSR & (PWR_FLAG_BRR)));
-}
-
 void OnBoot_Check_DFU_Reqeust(void)
 {
 	__HAL_RCC_PWR_CLK_ENABLE();
@@ -700,28 +691,29 @@ void SetPWM(TIM_HandleTypeDef * timer, uint8_t channel, uint16_t PWM)
 /* StartDefaultTask function */
 void StartDefaultTask(void const * argument)
 {
-	uint16_t counter = 0;
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
+  Communication_Init();
 
   /* USER CODE BEGIN 5 */
+  int counter = 0;
   uint8_t buffer[20];
   /* Infinite loop */
   for(;;)
   {
-	if (UserRxBufferFS[0] > 0) {
+	/*if (UserRxBufferFS[0] > 0) {
 		sprintf(buffer, "Hello World\n", range);
 		CDC_Transmit_FS(buffer, strlen(buffer));
 		CDC_EmptyReceiveBuffer();
 		Enter_DFU_Bootloader();
-	}
+	}*/
 
 	/*if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
 		sprintf(buffer, "Motor BCK: %d\n", __HAL_TIM_GET_COUNTER(&htim2));
 	} else {
 		sprintf(buffer, "Motor FWD: %d\n", __HAL_TIM_GET_COUNTER(&htim2));
-	}*/
-	//CDC_Transmit_FS(buffer, strlen(buffer));
+	}
+	CDC_Transmit_FS(buffer, strlen(buffer));*/
 
 	sprintf(buffer, "%d\n", counter);
 	LiDAR_Transmit(buffer, strlen(buffer));
@@ -729,9 +721,8 @@ void StartDefaultTask(void const * argument)
 
     osDelay(200);
   }
-  /* USER CODE END 5 */
+  /* USER CODE END 5 */ 
 }
-
 
 /**
   * @brief  Period elapsed callback in non blocking mode

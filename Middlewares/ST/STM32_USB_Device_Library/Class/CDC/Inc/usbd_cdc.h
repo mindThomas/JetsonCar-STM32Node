@@ -35,6 +35,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include  "usbd_ioreq.h"
+#include "cmsis_os.h"
 
 /** @addtogroup STM32_USB_DEVICE_LIBRARY
   * @{
@@ -82,6 +83,7 @@
   * @}
   */ 
 
+SemaphoreHandle_t USB_TX_FinishedSemaphore;
 
 /** @defgroup USBD_CORE_Exported_TypesDefinitions
   * @{

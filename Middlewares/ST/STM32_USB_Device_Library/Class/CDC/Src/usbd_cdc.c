@@ -63,6 +63,7 @@
 #include "usbd_desc.h"
 #include "usbd_ctlreq.h"
 
+SemaphoreHandle_t USB_TX_FinishedSemaphore = NULL;
 
 /** @addtogroup STM32_USB_DEVICE_LIBRARY
   * @{
@@ -477,7 +478,7 @@ static uint8_t  USBD_CDC_Init (USBD_HandleTypeDef *pdev,
 {
   uint8_t ret = 0;
   USBD_CDC_HandleTypeDef   *hcdc;
-  
+
   if(pdev->dev_speed == USBD_SPEED_HIGH  ) 
   {  
     /* Open EP IN */
@@ -664,11 +665,15 @@ static uint8_t  USBD_CDC_Setup (USBD_HandleTypeDef *pdev,
 static uint8_t  USBD_CDC_DataIn (USBD_HandleTypeDef *pdev, uint8_t epnum)
 {
   USBD_CDC_HandleTypeDef   *hcdc = (USBD_CDC_HandleTypeDef*) pdev->pClassData;
+  portBASE_TYPE xHigherPriorityTaskWoken;
   
   if(pdev->pClassData != NULL)
   {
-    
+	xSemaphoreGiveFromISR( USB_TX_FinishedSemaphore, &xHigherPriorityTaskWoken );
+
     hcdc->TxState = 0;
+
+    portEND_SWITCHING_ISR( xHigherPriorityTaskWoken );
 
     return USBD_OK;
   }

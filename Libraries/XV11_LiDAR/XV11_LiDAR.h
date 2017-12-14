@@ -19,13 +19,15 @@
 
 #define LIDAR_UART_BAUD			115200
 #define LIDAR_PACKAGE			22
-#define LIDAR_DMA_BUFFER		(30*LIDAR_PACKAGE)
-#define LIDAR_BUFFER_SIZE		(100*LIDAR_PACKAGE)
+#define LIDAR_DMA_BUFFER		(50*LIDAR_PACKAGE)
+#define LIDAR_BUFFER_SIZE		(200*LIDAR_PACKAGE)
 
 extern SemaphoreHandle_t XV11_Semaphore;
 
 void LiDAR_Init(void);
 void LiDAR_GPIO_Init(void);
+void LiDAR_UART_Init(void);
+void LiDAR_DMA_Init(void);
 
 void LiDAR_RestartDMA(void);
 void LiDAR_Transmit(uint8_t * buffer, uint16_t len);

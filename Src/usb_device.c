@@ -62,7 +62,8 @@ USBD_HandleTypeDef hUsbDeviceFS;
 void MX_USB_DEVICE_Init(void)
 {
   /* USER CODE BEGIN USB_DEVICE_Init_PreTreatment */
-  
+  uint8_t zeroByte = 0;
+  USB_TX_FinishedSemaphore = xSemaphoreCreateBinary();
   /* USER CODE END USB_DEVICE_Init_PreTreatment */
   
   /* Init Device Library,Add Supported Class and Start the library*/
@@ -75,7 +76,7 @@ void MX_USB_DEVICE_Init(void)
   USBD_Start(&hUsbDeviceFS);
 
   /* USER CODE BEGIN USB_DEVICE_Init_PostTreatment */
-  
+
   /* USER CODE END USB_DEVICE_Init_PostTreatment */
 }
 /**
