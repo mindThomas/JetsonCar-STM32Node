@@ -15,7 +15,7 @@ void Encoders_Init(void)
 void Encoders_GetCount(int32_t * front, int32_t * rear)
 {
 	*front = __HAL_TIM_GET_COUNTER(&htim5);
-	*rear = __HAL_TIM_GET_COUNTER(&htim2);
+	*rear = -__HAL_TIM_GET_COUNTER(&htim2);
 }
 
 void Encoders_GetAngle(float * angleFront, float * angleRear)

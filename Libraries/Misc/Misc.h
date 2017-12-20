@@ -13,7 +13,7 @@ void Misc_Init(void);
 void RGB_SetColor(uint8_t Red, uint8_t Green, uint8_t Blue);
 void SetLEDPWM(TIM_HandleTypeDef * timer, uint8_t channel, uint16_t PWM);
 
-void Buzzer_Beep(void);
+void Buzzer_Beep(uint16_t onTime);
 void Buzzer_On(void);
 void Buzzer_Off(void);
 

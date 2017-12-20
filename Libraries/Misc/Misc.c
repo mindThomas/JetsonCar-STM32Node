@@ -63,10 +63,10 @@ void SetLEDPWM(TIM_HandleTypeDef * timer, uint8_t channel, uint16_t PWM)
 	}
 }
 
-void Buzzer_Beep(void)
+void Buzzer_Beep(uint16_t onTime)
 {
 	Buzzer_On();
-	osDelay(200);
+	osDelay(onTime);
 	Buzzer_Off();
 }
 

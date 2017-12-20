@@ -20,6 +20,8 @@ void Motors_Init(void)
 
 	Throttle_Scaling = (float)(Throttle_Max - Throttle_Min) / (float)MOTORS_INPUT_RANGE;
 	Steering_Scaling = (float)(Steering_Max - Steering_Min) / (float)MOTORS_INPUT_RANGE;
+
+	Motors_Set(500,500); // initially turn off throttle and center steering motor
 }
 
 void Motors_Set(uint16_t Throttle, uint16_t Steering)

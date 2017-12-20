@@ -10,6 +10,7 @@ void RC_Receiver_Init(void);
 void RC_Receiver_CalculateCalValues(void);
 void RC_Receiver_Calibrate(void);
 void RC_Receiver_GetValues(uint16_t * Throttle, uint16_t * Steering);
+uint8_t RC_Receiver_Connected(void);
 
 void TIM4_IRQHandler(void);
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim);

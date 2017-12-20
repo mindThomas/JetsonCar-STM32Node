@@ -36,6 +36,11 @@
 			<locationURI>PARENT-2-PROJECT_LOC/Src/communication.c</locationURI>
 		</link>
 		<link>
+			<name>Application/User/communication.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Inc/communication.h</locationURI>
+		</link>
+		<link>
 			<name>Application/User/freertos.c</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Src/freertos.c</locationURI>

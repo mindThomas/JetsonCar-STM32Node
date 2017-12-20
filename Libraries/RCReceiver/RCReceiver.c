@@ -128,14 +128,14 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 
 void RC_Receiver_Calibrate(void)
 {
-	uint32_t tEnd = osKernelSysTick() + 10000; // calibration for 10 seconds
+	uint32_t tEnd = xTaskGetTickCount() + 10000; // calibration for 10 seconds
 
 	RCIn_Throttle_CalMicrosMin = 9999;
 	RCIn_Throttle_CalMicrosMax = 0;
 	RCIn_Steering_CalMicrosMin = 9999;
 	RCIn_Steering_CalMicrosMax = 0;
 
-	while (osKernelSysTick() < tEnd) {
+	while (xTaskGetTickCount() < tEnd) {
 		if (RCIn_Throttle_Micros > 0) {
 			if (RCIn_Throttle_Micros > RCIn_Throttle_CalMicrosMax) RCIn_Throttle_CalMicrosMax = RCIn_Throttle_Micros;
 			if (RCIn_Throttle_Micros < RCIn_Throttle_CalMicrosMin) RCIn_Throttle_CalMicrosMin = RCIn_Throttle_Micros;
@@ -196,3 +196,16 @@ void RC_Receiver_GetValues(uint16_t * Throttle, uint16_t * Steering)
 		*Steering = (RCIn_Steering_Micros - RCIn_Steering_CalMicrosMin) * RCIn_Steering_CalScaling;
 	}
 }
+
+uint8_t RC_Receiver_Connected(void)
+{
+	uint16_t Throttle, Steering;
+	RC_Receiver_GetValues(&Throttle, &Steering);
+
+	if (Steering == 0 && Throttle > 495 && Throttle < 505) { // RC receiver off
+		return 0;
+	} else {
+		return 1;
+	}
+}
+

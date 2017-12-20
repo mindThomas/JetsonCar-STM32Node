@@ -282,12 +282,21 @@ static int8_t CDC_Control_FS  (uint8_t cmd, uint8_t* pbuf, uint16_t length)
 static int8_t CDC_Receive_FS (uint8_t* Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
+  Comm_Package package;
+  uint8_t i;
   portBASE_TYPE xHigherPriorityTaskWoken;
+
+  if (*Len < COMM_ALLOCATED_BUFFER_SPACE) {
+	  memcpy(package.Data, Buf, *Len);
+	  package.DataLength = *Len;
+	  xQueueSendFromISR(CommunicationReceiveQueue, (void *)&package, (TickType_t) 0);
+  }
+  /*xSemaphoreGiveFromISR( CommunicationReceiveSemaphore, &xHigherPriorityTaskWoken );
+  portEND_SWITCHING_ISR( xHigherPriorityTaskWoken );*/
+
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-  xSemaphoreGiveFromISR( CommunicationReceiveSemaphore, &xHigherPriorityTaskWoken );
-  portEND_SWITCHING_ISR( xHigherPriorityTaskWoken );
   return (USBD_OK);
   /* USER CODE END 6 */ 
 }

@@ -352,11 +352,12 @@ void ParsePackage(uint8_t * packagePointer)
 		if (!InvalidFlag[i])
 		{
 			Distance[Index+i] = packagePointer[4+(i*4)] | ((uint16_t)(packagePointer[5+(i*4)] & 0x3F) << 8);
+			meas.Timestamp = xTaskGetTickCount();
 			meas.ID = Index+i;
 			meas.Distance = Distance[Index+i];
 			if (xQueueSend(LiDAR_Message_Queue, (void *)&meas, (TickType_t) 10) != pdPASS)
 			{
-				meas.ID = 0;
+				// Error!
 			}
 			GoodReadings++;
 		} else {

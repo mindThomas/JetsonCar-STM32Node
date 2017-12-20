@@ -143,7 +143,7 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
   // OBS. If re-generating the project from CubeMX remember to go into settings and turn off optimization!
-  //LiDAR_Init();
+  LiDAR_Init();
   Encoders_Init();
   Motors_Init();
   Misc_Init(); // Init RGB, Buzzer etc.
@@ -644,7 +644,7 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-		RC_Receiver_GetValues(&Throttle, &Steering);
+		/*RC_Receiver_GetValues(&Throttle, &Steering);
 
 		if (Steering == 0 && Throttle > 495 && Throttle < 505) { // RC receiver off
 			R = 0;
@@ -678,7 +678,7 @@ void StartDefaultTask(void const * argument)
 			Buzzer_Off();
 		}
 
-		Encoders_GetAngle(&angleFront, &angleRear);
+		Encoders_GetAngle(&angleFront, &angleRear);*/
 
 		osDelay(20);
   }
