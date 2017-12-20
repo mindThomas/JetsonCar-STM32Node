@@ -1,75 +1,29 @@
 #include "stm32f4xx_hal.h"
 #include "Encoders.h"
 
-int32_t Encoder_Left = 0;
-int32_t Encoder_Right = 0;
-
-// http://en.wikipedia.org/wiki/Rotary_encoder#Incremental_rotary_encoder
-const int8_t EncoderStates[16] = { 0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0 }; // Encoder lookup table if it interrupts on every edge
-//const int8_t EncoderStates[16] = { 0, 0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0 };
-//const int8_t EncoderStates[16] = { 0, -1, 1, 0, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, 0};
-static uint8_t oldLeftAB = 0;
-static uint8_t oldRightAB = 0;
+extern TIM_HandleTypeDef htim5;
+extern TIM_HandleTypeDef htim2;
 
 void Encoders_Init(void)
 {
-	Encoders_GPIO_Init();
-
-	Encoder_Left = 0;
-	Encoder_Right = 0;
+	// Enable Encoder interface
+	HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL); // Front encoder
+	HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL); // Back encoder
+	//HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL); // Future use encoder
 }
 
-void Encoders_GPIO_Init(void)
+void Encoders_GetCount(int32_t * front, int32_t * rear)
 {
-	GPIO_InitTypeDef GPIO_InitStruct;
-
-	ENCODERS_GPIO_ENABLE();
-
-	GPIO_InitStruct.Pin = ENCODERS_LEFT_A_PIN  | ENCODERS_RIGHT_A_PIN | ENCODERS_LEFT_B_PIN | ENCODERS_RIGHT_B_PIN;
-	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(ENCODERS_GPIO_PORT, &GPIO_InitStruct);
-
-	// Enable encoder interrupt
-	HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
-	HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+	*front = __HAL_TIM_GET_COUNTER(&htim5);
+	*rear = __HAL_TIM_GET_COUNTER(&htim2);
 }
 
-
-/**
-* @brief This function handles EXTI line 4 to 15 interrupts.
-*/
-void EXTI4_15_IRQHandler(void)
+void Encoders_GetAngle(float * angleFront, float * angleRear)
 {
-  /* EXTI line interrupt detected */
-  if (__HAL_GPIO_EXTI_GET_IT(ENCODERS_LEFT_A_PIN) != RESET) {
-	  __HAL_GPIO_EXTI_CLEAR_IT(ENCODERS_LEFT_A_PIN);
-      Encoders_LeftHandler();
-  }
-  if (__HAL_GPIO_EXTI_GET_IT(ENCODERS_LEFT_B_PIN) != RESET) {
-	  __HAL_GPIO_EXTI_CLEAR_IT(ENCODERS_LEFT_B_PIN);
-	  Encoders_LeftHandler();
-  }
-  if (__HAL_GPIO_EXTI_GET_IT(ENCODERS_RIGHT_A_PIN) != RESET) {
-	  __HAL_GPIO_EXTI_CLEAR_IT(ENCODERS_RIGHT_A_PIN);
-	  Encoders_RightHandler();
-  }
-  if (__HAL_GPIO_EXTI_GET_IT(ENCODERS_RIGHT_B_PIN) != RESET) {
-	  __HAL_GPIO_EXTI_CLEAR_IT(ENCODERS_RIGHT_B_PIN);
-	  Encoders_RightHandler();
-  }
-}
+	int32_t front, rear;
 
-inline void Encoders_LeftHandler(void)
-{
-  oldLeftAB <<= 2; // Remember previous state
-  oldLeftAB |= (ENCODERS_GPIO_PORT->IDR & (ENCODERS_LEFT_A_PIN | ENCODERS_LEFT_B_PIN)) >> ENCODERS_LEFT_SHIFT;
-  Encoder_Left -= EncoderStates[ oldLeftAB & 0x0F ];
-}
+	Encoders_GetCount(&front, &rear);
 
-inline void Encoders_RightHandler(void)
-{
-  oldRightAB <<= 2; // Remember previous state
-  oldRightAB |= (ENCODERS_GPIO_PORT->IDR & (ENCODERS_RIGHT_A_PIN | ENCODERS_RIGHT_B_PIN)) >> ENCODERS_RIGHT_SHIFT;
-  Encoder_Right -= EncoderStates[ oldRightAB & 0x0F ];
+	*angleFront = (((float)front / (COUNTS_PR_REVOLUTION*GEARING_RATIO))*360);
+	*angleRear = (((float)rear / (COUNTS_PR_REVOLUTION*GEARING_RATIO))*360);
 }

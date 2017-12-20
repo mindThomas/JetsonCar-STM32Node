@@ -22,14 +22,17 @@
 #define LIDAR_DMA_BUFFER		(50*LIDAR_PACKAGE)
 #define LIDAR_BUFFER_SIZE		(200*LIDAR_PACKAGE)
 
+#define LIDAR_TIMEOUT			500		// if no packages received for 500 ms then restart DMA (this usually happens when debugging and stopping on a breakpoint)
+
 extern SemaphoreHandle_t XV11_Semaphore;
+extern uint32_t LiDAR_LastPackageTimestamp;
 
 void LiDAR_Init(void);
 void LiDAR_GPIO_Init(void);
 void LiDAR_UART_Init(void);
 void LiDAR_DMA_Init(void);
 
-void LiDAR_RestartDMA(void);
+void LiDAR_Restart(void);
 void LiDAR_Transmit(uint8_t * buffer, uint16_t len);
 void Debug(uint8_t * text);
 void LiDAR_Parser(void const * argument);

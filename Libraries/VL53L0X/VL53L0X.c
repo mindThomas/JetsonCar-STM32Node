@@ -1137,3 +1137,57 @@ bool VL53L0X_performSingleRefCalibration(uint8_t vhv_init_byte)
 
   return true;
 }
+
+
+
+#define LONG_RANGE
+#define HIGH_ACCURACY
+#include <string.h>
+uint16_t range;
+osThreadId I2C_TestTaskHandle;
+
+void VL53L0X_LaunchTest(void)
+{
+	osThreadDef(I2C_TestTask, VL53L0X_TestTask, osPriorityNormal, 0, 256);
+	I2C_TestTaskHandle = osThreadCreate(osThread(I2C_TestTask), NULL);
+}
+
+void VL53L0X_TestTask(void const * argument)
+{
+	uint8_t buffer[50];
+	while (1) {
+		osDelay(100);
+	}
+
+	VL53L0X_init(true);
+	VL53L0X_setTimeout(500);
+	/*VL53L0X_startContinuous(0);
+
+	while (1) {
+		range = VL53L0X_readRangeContinuousMillimeters();
+		//osDelay(100);
+	}*/
+
+#ifdef LONG_RANGE
+  // lower the return signal rate limit (default is 0.25 MCPS)
+	VL53L0X_setSignalRateLimit(0.1);
+  // increase laser pulse periods (defaults are 14 and 10 PCLKs)
+	VL53L0X_setVcselPulsePeriod(VL53L0X_VcselPeriodPreRange, 18);
+	VL53L0X_setVcselPulsePeriod(VL53L0X_VcselPeriodFinalRange, 14);
+#endif
+
+#ifdef HIGH_SPEED
+  // reduce timing budget to 20 ms (default is about 33 ms)
+	VL53L0X_setMeasurementTimingBudget(20000);
+#elif defined(HIGH_ACCURACY)
+  // increase timing budget to 200 ms
+	VL53L0X_setMeasurementTimingBudget(200000);
+#endif
+
+	while (1) {
+		range = VL53L0X_readRangeSingleMillimeters();
+		sprintf(buffer, "Distance: %d\n", range);
+		//CDC_Transmit_FS(buffer, strlen(buffer));
+		osDelay(100);
+	}
+}

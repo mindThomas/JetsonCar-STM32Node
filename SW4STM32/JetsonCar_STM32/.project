@@ -201,6 +201,36 @@
 			<locationURI>PARENT-2-PROJECT_LOC/Libraries/Encoders/Encoders.h</locationURI>
 		</link>
 		<link>
+			<name>Libraries/Misc/Misc.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Libraries/Misc/Misc.c</locationURI>
+		</link>
+		<link>
+			<name>Libraries/Misc/Misc.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Libraries/Misc/Misc.h</locationURI>
+		</link>
+		<link>
+			<name>Libraries/Motors/Motors.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Libraries/Motors/Motors.c</locationURI>
+		</link>
+		<link>
+			<name>Libraries/Motors/Motors.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Libraries/Motors/Motors.h</locationURI>
+		</link>
+		<link>
+			<name>Libraries/RCReceiver/RCReceiver.c</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Libraries/RCReceiver/RCReceiver.c</locationURI>
+		</link>
+		<link>
+			<name>Libraries/RCReceiver/RCReceiver.h</name>
+			<type>1</type>
+			<locationURI>PARENT-2-PROJECT_LOC/Libraries/RCReceiver/RCReceiver.h</locationURI>
+		</link>
+		<link>
 			<name>Libraries/VL53L0X/VL53L0X.c</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/Libraries/VL53L0X/VL53L0X.c</locationURI>

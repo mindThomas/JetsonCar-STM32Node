@@ -35,6 +35,10 @@
 								<option id="gnu.c.compiler.option.include.paths.1223013130" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="../../../Inc"/>
 									<listOptionValue builtIn="false" value="../../../Libraries/CRC"/>
+									<listOptionValue builtIn="false" value="../../../Libraries/RCReceiver"/>
+									<listOptionValue builtIn="false" value="../../../Libraries/Misc"/>
+									<listOptionValue builtIn="false" value="../../../Libraries/Motors"/>
+									<listOptionValue builtIn="false" value="../../../Libraries/Encoders"/>
 									<listOptionValue builtIn="false" value="../../../Libraries/VL53L0X"/>
 									<listOptionValue builtIn="false" value="../../../Libraries/XV11_LiDAR"/>
 									<listOptionValue builtIn="false" value="../../../Drivers/STM32F4xx_HAL_Driver/Inc"/>
@@ -188,7 +192,7 @@
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Debug">
-			<resource resourceType="PROJECT" workspacePath="/JetsonCar_STM32"/>
+			<resource resourceType="PROJECT" workspacePath="JetsonCar_STM32"/>
 		</configuration>
 		<configuration configurationName="Release"/>
 	</storageModule>

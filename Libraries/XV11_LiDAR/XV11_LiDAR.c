@@ -23,6 +23,7 @@ static uint16_t writeRolloverPos = LIDAR_BUFFER_SIZE;
 static uint16_t DMAReadSize = 0;
 
 static float LiDAR_Speed = 0;
+uint32_t LiDAR_LastPackageTimestamp;
 
 extern xQueueHandle xExternal;
 
@@ -35,6 +36,8 @@ void LiDAR_Init(void)
 	LiDAR_GPIO_Init();
 	LiDAR_UART_Init();
 	LiDAR_DMA_Init();
+	// Enable PWM output for LiDAR motor
+	HAL_TIM_PWM_Start(&htim12, TIM_CHANNEL_1);
 
 	osThreadDef(LiDAR_ParserTask, LiDAR_Parser, osPriorityRealtime, 0, 512);
 	LiDAR_ParserTaskHandle = osThreadCreate(osThread(LiDAR_ParserTask), NULL);
@@ -192,11 +195,26 @@ void DMA2_Stream5_IRQHandler(void) {
         DMA2_Stream5->NDTR = LIDAR_DMA_BUFFER;    /* Set number of bytes to receive */
         __HAL_DMA_ENABLE(&hdma_rx);				   /* Re-enable the DMA transfer */
 
-        //status = xQueueSendToBackFromISR( xExternal, &i, &xHigherPriorityTaskWoken );
+        LiDAR_LastPackageTimestamp = xTaskGetTickCountFromISR();
+
         xSemaphoreGiveFromISR( XV11_Semaphore, &xHigherPriorityTaskWoken );
 
         portEND_SWITCHING_ISR( xHigherPriorityTaskWoken );
     }
+}
+
+void LiDAR_Restart(void)
+{
+	writeOffset = 0;
+	readOffset = 0;
+
+	__HAL_DMA_DISABLE(&hdma_rx);            /* Disabling DMA will force transfer complete interrupt if enabled */
+	__HAL_UART_CLEAR_OREFLAG(&UartHandle);
+
+    DMA2->HIFCR =  DMA_HISR_DMEIF5 | DMA_HISR_FEIF5 | DMA_HISR_HTIF5 | DMA_HISR_TCIF5 | DMA_HISR_TEIF5;
+    DMA2_Stream5->M0AR = (uint32_t)&LiDAR_Buffer[writeOffset];   /* Set memory address for DMA again */
+    DMA2_Stream5->NDTR = LIDAR_DMA_BUFFER;    /* Set number of bytes to receive */
+    __HAL_DMA_ENABLE(&hdma_rx);				   /* Re-enable the DMA transfer */
 }
 
 void LiDAR_Parser(void const * argument)
@@ -206,11 +224,6 @@ void LiDAR_Parser(void const * argument)
 	//sprintf(text_buffer, "New package\n");
 
 	while (1) {
-		/*if (pdTRUE == xQueueReceive( xExternal, &len, portMAX_DELAY)) {
-        	sprintf(text_buffer, "Length: %d\n", len);
-        	LiDAR_Transmit(text_buffer, strlen(text_buffer));
-		}*/
-
 		if( xSemaphoreTake( XV11_Semaphore, portMAX_DELAY ) == pdTRUE ) {
 			//LiDAR_Transmit(text_buffer, strlen(text_buffer));
 			ParseIncomingData();
@@ -357,13 +370,19 @@ void ParsePackage(uint8_t * packagePointer)
 uint16_t PackageChecksum(uint8_t * packagePointer)
 {
 	uint8_t i;
+	uint16_t data[10];
 	uint16_t checksum;
 	uint32_t chk32;
+
+	// group the data by word, little-endian
+	for (i = 0; i < 10; i++) {
+		data[i] = packagePointer[2*i] | (((uint16_t)packagePointer[2*i+1]) << 8);
+	}
 
 	// compute the checksum on 32 bits
 	chk32 = 0;
 	for (i = 0; i < 10; i++) {
-    	chk32 = (chk32 << 1) + (packagePointer[2*i] | (((uint16_t)packagePointer[2*i+1]) << 8)); // group the data into 16-bit, little-endian
+    	chk32 = (chk32 << 1) + data[i]; // group the data into 16-bit, little-endian
 	}
 
    // return a value wrapped around on 15bits, and truncated to still fit into 15 bits

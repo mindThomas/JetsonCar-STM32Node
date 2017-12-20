@@ -128,6 +128,9 @@
     uint16_t VL53L0X_getTimeout(void);
     bool VL53L0X_timeoutOccurred(void);
 
+    void VL53L0X_LaunchTest(void);
+    void VL53L0X_TestTask(void const * argument);
+
 #endif
 
 

@@ -51,64 +51,63 @@
 #include "stm32f4xx_hal.h"
 #include "cmsis_os.h"
 #include "usb_device.h"
-#include "communication.h"
-#include "crc.h"
 
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
 #include "VL53L0X.h"
 #include "XV11_LiDAR.h"
+#include "RCReceiver.h"
+#include "Encoders.h"
+#include "Motors.h"
+#include "Misc.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c2;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim9;
-TIM_HandleTypeDef htim10;
 TIM_HandleTypeDef htim12;
 
 osThreadId defaultTaskHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-osThreadId I2C_TestTaskHandle;
-osThreadId ServoTestTaskHandle;
-xQueueHandle xExternal;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C2_Init(void);
-static void MX_TIM10_Init(void);
 static void MX_TIM9_Init(void);
 static void MX_TIM12_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM4_Init(void);
+static void MX_TIM1_Init(void);
+static void MX_TIM8_Init(void);
 void StartDefaultTask(void const * argument);
-
+                                    
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                                
-                                
                                 
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void I2C_Test(void const * argument);
-void ServoTest(void const * argument);
-void SetPWM(TIM_HandleTypeDef * timer, uint8_t channel, uint16_t PWM);
+
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-uint16_t checksum;
 /* USER CODE END 0 */
 
 int main(void)
- {
+{
 
   /* USER CODE BEGIN 1 */
 
@@ -128,28 +127,27 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
   crcInit();
-  checksum = crcFast("123456789", 9);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C2_Init();
-  MX_TIM10_Init();
   MX_TIM9_Init();
   MX_TIM12_Init();
   MX_TIM2_Init();
   MX_TIM5_Init();
   MX_TIM3_Init();
+  MX_TIM4_Init();
+  MX_TIM1_Init();
+  MX_TIM8_Init();
 
   /* USER CODE BEGIN 2 */
-  LiDAR_Init();
-  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL); // Start the encoder interface
-  HAL_TIM_PWM_Start(&htim10, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim12, TIM_CHANNEL_1);
-
-  xExternal = xQueueCreate( 100, sizeof(uint16_t) );
+  // OBS. If re-generating the project from CubeMX remember to go into settings and turn off optimization!
+  //LiDAR_Init();
+  Encoders_Init();
+  Motors_Init();
+  Misc_Init(); // Init RGB, Buzzer etc.
+  RC_Receiver_Init();
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -170,11 +168,7 @@ int main(void)
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  osThreadDef(I2C_TestTask, I2C_Test, osPriorityNormal, 0, 256);
-  I2C_TestTaskHandle = osThreadCreate(osThread(I2C_TestTask), NULL);
-
-  osThreadDef(ServoTestTask, ServoTest, osPriorityNormal, 0, 128);
-  ServoTestTaskHandle = osThreadCreate(osThread(ServoTestTask), NULL);
+  Communication_Init();
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -275,6 +269,60 @@ static void MX_I2C2_Init(void)
 
 }
 
+/* TIM1 init function */
+static void MX_TIM1_Init(void)
+{
+
+  TIM_MasterConfigTypeDef sMasterConfig;
+  TIM_OC_InitTypeDef sConfigOC;
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig;
+
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 335;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 9999;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 250;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
 /* TIM2 init function */
 static void MX_TIM2_Init(void)
 {
@@ -345,6 +393,46 @@ static void MX_TIM3_Init(void)
 
 }
 
+/* TIM4 init function */
+static void MX_TIM4_Init(void)
+{
+
+  TIM_MasterConfigTypeDef sMasterConfig;
+  TIM_IC_InitTypeDef sConfigIC;
+
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 167;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 0xFFFF;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_IC_Init(&htim4) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_BOTHEDGE;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /* TIM5 init function */
 static void MX_TIM5_Init(void)
 {
@@ -380,6 +468,70 @@ static void MX_TIM5_Init(void)
 
 }
 
+/* TIM8 init function */
+static void MX_TIM8_Init(void)
+{
+
+  TIM_MasterConfigTypeDef sMasterConfig;
+  TIM_OC_InitTypeDef sConfigOC;
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig;
+
+  htim8.Instance = TIM8;
+  htim8.Init.Prescaler = 1679;
+  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim8.Init.Period = 255;
+  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim8.Init.RepetitionCounter = 0;
+  if (HAL_TIM_PWM_Init(&htim8) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 256;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim8, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  if (HAL_TIM_PWM_ConfigChannel(&htim8, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  if (HAL_TIM_PWM_ConfigChannel(&htim8, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim8, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  HAL_TIM_MspPostInit(&htim8);
+
+}
+
 /* TIM9 init function */
 static void MX_TIM9_Init(void)
 {
@@ -411,40 +563,6 @@ static void MX_TIM9_Init(void)
   }
 
   HAL_TIM_MspPostInit(&htim9);
-
-}
-
-/* TIM10 init function */
-static void MX_TIM10_Init(void)
-{
-
-  TIM_OC_InitTypeDef sConfigOC;
-
-  htim10.Instance = TIM10;
-  htim10.Init.Prescaler = 335;
-  htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 9999;
-  htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  if (HAL_TIM_PWM_Init(&htim10) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 250;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim10, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  HAL_TIM_MspPostInit(&htim10);
 
 }
 
@@ -487,204 +605,27 @@ static void MX_TIM12_Init(void)
 static void MX_GPIO_Init(void)
 {
 
+  GPIO_InitTypeDef GPIO_InitStruct;
+
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PA4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
+
 
 /* USER CODE BEGIN 4 */
-#define LONG_RANGE
-#define HIGH_ACCURACY
-#include <string.h>
-uint16_t range;
-void I2C_Test(void const * argument)
-{
-	uint8_t buffer[50];
-	while (1) {
-		osDelay(100);
-	}
-
-	VL53L0X_init(true);
-	VL53L0X_setTimeout(500);
-	/*VL53L0X_startContinuous(0);
-
-	while (1) {
-		range = VL53L0X_readRangeContinuousMillimeters();
-		//osDelay(100);
-	}*/
-
-#ifdef LONG_RANGE
-  // lower the return signal rate limit (default is 0.25 MCPS)
-	VL53L0X_setSignalRateLimit(0.1);
-  // increase laser pulse periods (defaults are 14 and 10 PCLKs)
-	VL53L0X_setVcselPulsePeriod(VL53L0X_VcselPeriodPreRange, 18);
-	VL53L0X_setVcselPulsePeriod(VL53L0X_VcselPeriodFinalRange, 14);
-#endif
-
-#ifdef HIGH_SPEED
-  // reduce timing budget to 20 ms (default is about 33 ms)
-	VL53L0X_setMeasurementTimingBudget(20000);
-#elif defined(HIGH_ACCURACY)
-  // increase timing budget to 200 ms
-	VL53L0X_setMeasurementTimingBudget(200000);
-#endif
-
-	while (1) {
-		range = VL53L0X_readRangeSingleMillimeters();
-		sprintf(buffer, "Distance: %d\n", range);
-		//CDC_Transmit_FS(buffer, strlen(buffer));
-		osDelay(100);
-	}
-}
-
-void ServoTest(void const * argument)
-{
-	uint16_t PWM;
-	int32_t encoder;
-	float angle;
-
-	while (1) {
-		encoder = __HAL_TIM_GET_COUNTER(&htim2);
-		angle = (((float)encoder / 600)*360);
-		if (angle > 90) angle = 90;
-		if (angle < -90) angle = -90;
-		PWM = (uint16_t)((float)((angle + 90.0) * 1000.0) / 180.0);
-		SetPWM(&htim9, 1, PWM);
-		osDelay(20);
-	}
-
-	/*while (1) {
-		for (PWM = 0; PWM < 1000; PWM += 10) {
-			SetPWM(&htim10, 1, PWM);
-			osDelay(50);
-		}
-		for (PWM = 1000; PWM > 10; PWM -= 10) {
-			SetPWM(&htim10, 1, PWM);
-			osDelay(50);
-		}
-	}*/
-}
-
-/*
-void Enter_DFU_Bootloader(void)
-{
-	// Activate the bootloader without BOOT* pins.
-	    //pyb_usb_dev_deinit();
-	    //storage_flush();
-
-	    //HAL_RCC_DeInit();
-	    //HAL_DeInit();
-		__disable_irq();
-
-	#if defined(MCU_SERIES_F7)
-	    // arm-none-eabi-gcc 4.9.0 does not correctly inline this
-	    // MSP function, so we write it out explicitly here.
-	    //__set_MSP(*((uint32_t*) 0x1FF00000));
-	    __ASM volatile ("movw r3, #0x0000\nmovt r3, #0x1FF0\nldr r3, [r3, #0]\nMSR msp, r3\n" : : : "r3", "sp");
-
-	    ((void (*)(void)) *((uint32_t*) 0x1FF00004))();
-	#else
-	    __HAL_REMAPMEMORY_SYSTEMFLASH();
-
-	    // arm-none-eabi-gcc 4.9.0 does not correctly inline this
-	    // MSP function, so we write it out explicitly here.
-	    //__set_MSP(*((uint32_t*) 0x00000000));
-	    __ASM volatile ("movs r3, #0\nldr r3, [r3, #0]\nMSR msp, r3\n" : : : "r3", "sp");
-
-	    ((void (*)(void)) *((uint32_t*) 0x00000004))();
-	#endif
-
-	    while (1);
-}*/
-
-#define BOOTLOADER_MAGIC_ADDR ((uint32_t*) ((uint32_t) 0x20001000)) //4k into SRAM (out of 6k)
-#define BOOTLOADER_MAGIC_TOKEN 0xDEADBEEF  // :D
-
-//Value taken from CD00167594.pdf page 35, system memory start.
-#define BOOTLOADER_START_ADDR 0x1fffc400 //for ST32F042
-
-#define A_VALUE 0x12345678
-
-void Enter_DFU_Bootloader(){
-//call this at any time to initiate a reboot into bootloader
-	//HAL_PWR_EnableBkUpAccess();
-    *BOOTLOADER_MAGIC_ADDR = BOOTLOADER_MAGIC_TOKEN;
-	//(*(__IO uint32_t *) (BKPSRAM_BASE + 0)) = A_VALUE;
-    NVIC_SystemReset();
-}
-
-void OnBoot_Check_DFU_Reqeust(void)
-{
-	__HAL_RCC_PWR_CLK_ENABLE();
-	HAL_PWR_EnableBkUpAccess();
-
-	void (*SysMemBootJump)(void);
-	volatile uint32_t addr = 0x1FFF0000; // For STM32F4 Discovery
-
-	//if((*(__IO uint32_t *) (BKPSRAM_BASE + 0)) == A_VALUE)
-	if (*BOOTLOADER_MAGIC_ADDR == BOOTLOADER_MAGIC_TOKEN)
-	{
-	  //(*(__IO uint32_t *) (BKPSRAM_BASE + 0)) = 0; // Reset memory, if desired.
-
-	  SysMemBootJump = (void (*)(void)) (*((uint32_t *)(addr + 4))); // Set Bootloader address
-
-	  __set_MSP(*(uint32_t *)addr); // Move Stack Pointer
-
-	  SysMemBootJump(); // Execute Bootloader
-	  while (1);
-	}
-}
-
-/*
-//This is the first thing the micro runs after startup_stm32f0xx.s
-//Only the SRAM is initialized at this point
-void Enter_DFU_Bootloader(){
-  uint32_t jumpaddr,tmp;
-
-  tmp=*BOOTLOADER_MAGIC_ADDR;
-  //tmp=BOOTLOADER_MAGIC_TOKEN; //DEBUG
-  if (tmp == BOOTLOADER_MAGIC_TOKEN){
-    *BOOTLOADER_MAGIC_ADDR=0; //Zero it so we don't loop by accident
-
-    // For the STM32F405, the BOOT0 pin is at PF11
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOF, ENABLE);
-    GPIO_InitTypeDef gp;
-    gp.GPIO_Pin = GPIO_Pin_11; //BOOT0 pin
-    gp.GPIO_Mode = GPIO_Mode_OUT;
-    gp.GPIO_Speed = GPIO_Speed_2MHz;
-    gp.GPIO_OType = GPIO_OType_PP;
-    gp.GPIO_PuPd = GPIO_PuPd_UP;
-    GPIO_Init(GPIOF, &gp);
-    GPIO_WriteBit(GPIOF, GPIO_Pin_11, 1);
-
-    void (*bootloader)(void) = 0; //Zero the function pointer.
-    jumpaddr = *(__IO uint32_t*)(BOOTLOADER_START_ADDR + 4);
-    bootloader = (void (*)(void)) jumpaddr; //Set the function pointer to bootaddr +4
-    __set_MSP(*(__IO uint32_t*) BOOTLOADER_START_ADDR); //load the stackpointer - bye bye program
-    bootloader(); //GO TO DFU MODE **** :D
-
-    //this should never be hit, trap for debugging
-    while(1){}
-  }
-}*/
-
-void SetPWM(TIM_HandleTypeDef * timer, uint8_t channel, uint16_t PWM)
-{
-	uint16_t Period;
-
-	if (PWM > 1000) PWM = 1000;
-	Period = 250 + PWM; // PWM should be between 0 to 999
-	                     // This will result in an output from 0.5 ms to 2.5 ms
-
-	if (channel == 1) {
-		__HAL_TIM_SET_COMPARE(timer, TIM_CHANNEL_1, Period);
-	}
-	else if (channel == 2) {
-		__HAL_TIM_SET_COMPARE(timer, TIM_CHANNEL_2, Period);
-	}
-}
 
 /* USER CODE END 4 */
 
@@ -693,40 +634,60 @@ void StartDefaultTask(void const * argument)
 {
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
-  Communication_Init();
 
   /* USER CODE BEGIN 5 */
-  int counter = 0;
-  uint8_t buffer[20];
+  int32_t encoder;
+  float angleFront, angleRear;
+  uint16_t Throttle, Steering;
+  uint8_t R,G,B;
+
   /* Infinite loop */
   for(;;)
   {
-	/*if (UserRxBufferFS[0] > 0) {
-		sprintf(buffer, "Hello World\n", range);
-		CDC_Transmit_FS(buffer, strlen(buffer));
-		CDC_EmptyReceiveBuffer();
-		Enter_DFU_Bootloader();
-	}*/
+		RC_Receiver_GetValues(&Throttle, &Steering);
 
-	/*if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
-		sprintf(buffer, "Motor BCK: %d\n", __HAL_TIM_GET_COUNTER(&htim2));
-	} else {
-		sprintf(buffer, "Motor FWD: %d\n", __HAL_TIM_GET_COUNTER(&htim2));
-	}
-	CDC_Transmit_FS(buffer, strlen(buffer));*/
+		if (Steering == 0 && Throttle > 495 && Throttle < 505) { // RC receiver off
+			R = 0;
+			G = 0;
+			B = 255;
+		} else {
+			if (Throttle > 0) {
+				R = Throttle / 4;
+			} else {
+				R = 0;
+			}
+			if (Steering > 0) {
+				G = Steering / 4;
+			} else {
+				G = 0;
+			}
+			B = 0;
+		}
 
-	sprintf(buffer, "%d\n", counter);
-	LiDAR_Transmit(buffer, strlen(buffer));
-	counter++;
+		RGB_SetColor(R,G,B);
 
-    osDelay(200);
+		if (Throttle > 0 && Steering > 0) {
+			Motors_Set(Throttle, Steering);
+		} else {
+			Motors_Set(500, 500); // centered - hopefully idle
+		}
+
+		if ((Steering != 0) && (Steering > 800 || Steering < 200)) {
+			Buzzer_On();
+		} else {
+			Buzzer_Off();
+		}
+
+		Encoders_GetAngle(&angleFront, &angleRear);
+
+		osDelay(20);
   }
   /* USER CODE END 5 */ 
 }
 
 /**
   * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM1 interrupt took place, inside
+  * @note   This function is called  when TIM14 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
   * a global variable "uwTick" used as application time base.
   * @param  htim : TIM handle
@@ -737,7 +698,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 /* USER CODE BEGIN Callback 0 */
 
 /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM1) {
+  if (htim->Instance == TIM14) {
     HAL_IncTick();
   }
 /* USER CODE BEGIN Callback 1 */

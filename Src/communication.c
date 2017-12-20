@@ -4,6 +4,7 @@
 #include "crc.h"
 #include "usbd_cdc_if.h"
 #include "usbd_cdc.h"
+#include "XV11_LiDAR.h"
 
 osThreadId CommunicationTransmitterTaskHandle;
 osThreadId CommunicationReceiverTaskHandle;
@@ -63,14 +64,18 @@ void Communication_Transmitter(void const * argument)
 			}
 
 			if (i == 4) {
-				packCRC = crcFast(package, sizeof(package));
+				packCRC = crcFast(package, sizeof(package)-2); // calculate CRC based on package content excluding CRC bytes
 				package[15] = packCRC >> 8;
 				package[16] = packCRC & 0xFF;
 				CDC_Transmit_FS_ThreadBlocking(package, sizeof(package));
 			}
 		}
 
-		osDelay(10);
+		if (xTaskGetTickCount() > (LiDAR_LastPackageTimestamp+LIDAR_TIMEOUT)) {
+			LiDAR_Restart();
+		}
+
+		osDelay(1);
 	}
 }
 
@@ -82,6 +87,14 @@ void Communication_Receiver(void const * argument)
 			buffer[0] = 0;
 			//sprintf(buffer, "I received something\n");
 			//CDC_Transmit_FS(buffer, strlen(buffer));
+			//__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)
+
+			/*if (UserRxBufferFS[0] > 0) {
+				sprintf(buffer, "Hello World\n", range);
+				CDC_Transmit_FS(buffer, strlen(buffer));
+				CDC_EmptyReceiveBuffer();
+				Enter_DFU_Bootloader();
+			}*/
 		}
 	}
 }
